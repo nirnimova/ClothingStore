@@ -1,4 +1,5 @@
-﻿using ClothingStore.Data;
+﻿using ClothingStore.BL;
+using ClothingStore.Data;
 using ClothingStore.Models;
 using System;
 using System.Collections.Generic;
@@ -15,41 +16,33 @@ namespace ClothingStore.Controllers
         [System.Web.Mvc.HttpPost]
         public JsonResult AddItem(NewClothingItemModel data)
         {
-            using (ClothingStoreDBContext db = new ClothingStoreDBContext())
+            var clothingStoreBL = new ClothingStoreBL();
+
+            clothingStoreBL.AddItem(new ClothingItem()
             {
-                var repo = new ClothingStoreRepository(db);
+                Name = data.Name,
+                Price = data.Price,
+                BrandName = data.BrandName,
+                ClothingItemTypeId = data.ClothingItemTypeId,
+            }, data.Ammount);
 
-                repo.AddItem(new ClothingItem()
-                {
-                    Name = data.Name,
-                    Price = data.Price,
-                    BrandName = data.BrandName,
-                    ClothingItemTypeId = data.ClothingItemTypeId,
-                }, data.Ammount);
-
-                return new JsonResult()
-                {
-                    Data = "Success",
-                    JsonRequestBehavior = JsonRequestBehavior.AllowGet,
-                };
-            }
+            return new JsonResult()
+            {
+                Data = "Success",
+                JsonRequestBehavior = JsonRequestBehavior.AllowGet,
+            };
         }
 
         [System.Web.Mvc.HttpGet]
         public JsonResult GetStatisticsForMonthAndYear(int month, int year)
         {
-            using (ClothingStoreDBContext db = new ClothingStoreDBContext())
+            var clothingStoreBL = new ClothingStoreBL();
+
+            return new JsonResult()
             {
-                var repo = new ClothingStoreRepository(db);
-
-                StatisticsModel[] result = repo.GetStatisticsForMonthAndYear(month, year);
-
-                return new JsonResult()
-                {
-                    Data = result,
-                    JsonRequestBehavior = JsonRequestBehavior.AllowGet,
-                };
-            }
+                Data = clothingStoreBL.GetStatisticsForMonthAndYear(month, year),
+                JsonRequestBehavior = JsonRequestBehavior.AllowGet,
+            };
         }
     }
 }

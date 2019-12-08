@@ -35,7 +35,7 @@ namespace ClothingStore.BL
                 }
 
                 //@@ Add New Purchase
-                repo.AddClothingItemPurchase(clothingItem);
+                repo.AddPurchase(clothingItem);
 
                 repo.Save();
             }
@@ -61,30 +61,112 @@ namespace ClothingStore.BL
                 var result = new StatisticsModel[daysInMonth];
 
                 var purchasesInMonth = repo.GetPurchasesInMonthByMonthAndYear(month, year);
-
-                var returnsInMonth = (from cir in _db.ClothingItemReturns
-                                      where cir.DateReturned.Month == month
-                                      where cir.DateReturned.Year == year
-                                      group cir by cir.DateReturned.Day into cirGroup
-                                      select new
-                                      {
-                                          Day = cirGroup.Key,
-                                          TotalReturns = cirGroup.Count(),
-                                      });
+                var returnsInMonth = repo.GetReturnsInMonthByMonthAndYear(month, year);
 
                 for (var i = 0; i < daysInMonth; i++)
                 {
                     result[i] = new StatisticsModel()
                     {
                         Day = i + 1,
-                        //@@ TODO: Fix
-                        Purchases = purchasesInMonth[i + 1],
-                        Returns = returnsInMonth.Where(r => r.Day == i + 1).SingleOrDefault()?.TotalReturns,
+                        Purchases = (purchasesInMonth.ContainsKey(i + 1)) ? (int?)purchasesInMonth[i + 1] : null,
+                        Returns = (returnsInMonth.ContainsKey(i + 1)) ? (int?)returnsInMonth[i + 1] : null,
                     };
                 }
 
                 return result;
             } 
+        }
+
+        internal void AddItem(ClothingItem ci, int ammount)
+        {
+            using (ClothingStoreDBContext db = new ClothingStoreDBContext())
+            {
+                var repo = new ClothingStoreRepository(db);
+
+                //@@ Check Clothing Item Type
+                try
+                {
+                    var isClothingItemType = repo.IsClothingItemType(ci.ClothingItemTypeId);
+                }
+                catch (InvalidOperationException)
+                {
+                    throw new InvalidOperationException("Invalid Clothing Item Type Id!");
+                }
+
+                ClothingItem[] clothingItems = new ClothingItem[ammount];
+                for (var i = 0; i < ammount; i++)
+                {
+                    clothingItems[i] = new ClothingItem()
+                    {
+                        Name = ci.Name,
+                        Price = ci.Price,
+                        BrandName = ci.BrandName,
+                        ClothingItemTypeId = ci.ClothingItemTypeId,
+                    };
+                }
+
+                repo.AddRangeClothingItems(clothingItems);
+                repo.Save(); 
+            }
+        }
+
+        internal void Return(int clothingItemId)
+        {
+            using (ClothingStoreDBContext db = new ClothingStoreDBContext())
+            {
+                var repo = new ClothingStoreRepository(db);
+
+                ClothingItem clothingItem;
+
+                //@@ Find Clothing Item
+                try
+                {
+                    clothingItem = repo.GetClothingItemById(clothingItemId);
+                }
+                catch (InvalidOperationException)
+                {
+                    throw new Exception("Invalid Clothing Item Id!");
+                }
+
+                var clothingItemReturn = new ClothingItemReturn();
+
+                //@@ Check Return Policy
+                var returnPolicy = repo.GetReturnPolicyForClothingItem(clothingItemId);
+
+                ClothingItemPurchase clothingItemPurchase;
+
+                try
+                {
+                    clothingItemPurchase = repo.GetPurchaseForClothingItem(clothingItemId);
+                }
+                catch (InvalidOperationException)
+                {
+                    throw new InvalidOperationException("Can't return item. Purchase not Made for Item");
+                }
+
+                if (returnPolicy != null)
+                {
+                    var daysPassedSincePurchase = (DateTime.Now - clothingItemPurchase.DatePurchashed).Days;
+
+                    if (daysPassedSincePurchase <= returnPolicy.DaysForFullRefund)
+                        clothingItemReturn.IsStoreCredit = false;
+                    else if (daysPassedSincePurchase <= returnPolicy.DaysForStoreCredit)
+                        clothingItemReturn.IsStoreCredit = true;
+                    else
+                    {
+                        throw new InvalidOperationException("Can't return item. Item does nor meet return / refund policy");
+                    }
+                }
+
+                //@@ Add New Return
+                clothingItemReturn.DateReturned = DateTime.Now;
+                clothingItemReturn.ReturnedAmmount = clothingItem.Price;
+                clothingItemReturn.ClothingItemId = clothingItemId;
+
+                repo.RemovePurchase(clothingItemPurchase);
+                repo.AddReturn(clothingItemReturn);
+                repo.Save();
+            }
         }
     }
 }
