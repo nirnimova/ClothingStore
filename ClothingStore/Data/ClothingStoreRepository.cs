@@ -15,33 +15,15 @@ namespace ClothingStore.Data
             this._db = db;
         }
 
-        internal void Purchase(int clothingItemId)
-        {
-            ClothingItem clothingItem;
+        internal ClothingItem GetClothingItemById(int clothingItemId) => (from ci in this._db.ClothingItems
+                                                                          where ci.Id == clothingItemId
+                                                                          select ci).Single();
 
-            //@@ Find Clothing Item
-            try
-            {
-                clothingItem = (from ci in this._db.ClothingItems
-                                where ci.Id == clothingItemId
-                                select ci).Single();
-            }
-            catch (InvalidOperationException)
-            {
-                throw new InvalidOperationException("Invalid Clothing Item Id!");
-            }
+        internal bool IsClothingItemPurchased(int clothingItemId) => (from cip in this._db.ClothingItemPurchases
+                                                                      where cip.ClothingItemId == clothingItemId
+                                                                      select true).SingleOrDefault();
 
-            //@@ Check if Purchased
-            var isPurchased = (from cip in this._db.ClothingItemPurchases
-                               where cip.ClothingItemId == clothingItemId
-                               select true).SingleOrDefault();
-
-            if (isPurchased)
-            {
-                throw new InvalidOperationException("Can't purchase item. Already purchased");
-            }
-
-            //@@ Add New Purchase
+        internal void AddClothingItemPurchase(ClothingItem clothingItem) =>
             this._db.ClothingItemPurchases.Add(new ClothingItemPurchase()
             {
                 DatePurchashed = DateTime.Now,
@@ -49,56 +31,15 @@ namespace ClothingStore.Data
                 ClothingItemId = clothingItem.Id,
             });
 
-            this._db.SaveChanges();
-        }
-
-        internal StatisticsModel[] GetStatisticsForMonthAndYear(int month, int year)
-        {
-            int daysInMonth;
-
-            try
-            {
-                daysInMonth = DateTime.DaysInMonth(year, month);
-            }
-            catch (ArgumentOutOfRangeException)
-            {
-                throw new Exception("Year / Month Invalid");
-            }
-
-            var result = new StatisticsModel[daysInMonth];
-
-            var purchasesInMonth = (from cip in _db.ClothingItemPurchases
-                                    where cip.DatePurchashed.Month == month
-                                    where cip.DatePurchashed.Year == year
-                                    group cip by cip.DatePurchashed.Day into cipGroup
-                                    select new
-                                    {
-                                        Day = cipGroup.Key,
-                                        TotalPurchases = cipGroup.Count(),
-                                    });
-
-            var returnsInMonth = (from cir in _db.ClothingItemReturns
-                                  where cir.DateReturned.Month == month
-                                  where cir.DateReturned.Year == year
-                                  group cir by cir.DateReturned.Day into cirGroup
-                                  select new
-                                  {
-                                      Day = cirGroup.Key,
-                                      TotalReturns = cirGroup.Count(),
-                                  });
-
-            for (var i = 0; i < daysInMonth; i++)
-            {
-                result[i] = new StatisticsModel()
-                {
-                    Day = i + 1,
-                    Purchases = purchasesInMonth.Where(p => p.Day == i + 1).SingleOrDefault()?.TotalPurchases,
-                    Returns = returnsInMonth.Where(r => r.Day == i + 1).SingleOrDefault()?.TotalReturns,
-                };
-            }
-
-            return result;
-        }
+        internal Dictionary<int, int> GetPurchasesInMonthByMonthAndYear(int month, int year) => (from cip in _db.ClothingItemPurchases
+                                                                                                 where cip.DatePurchashed.Month == month
+                                                                                                 where cip.DatePurchashed.Year == year
+                                                                                                 group cip by cip.DatePurchashed.Day into cipGroup
+                                                                                                 select new
+                                                                                                 {
+                                                                                                     Day = cipGroup.Key,
+                                                                                                     TotalPurchases = cipGroup.Count(),
+                                                                                                 }).ToDictionary(itm => itm.Day, itm => itm.TotalPurchases);
 
         internal void AddItem(ClothingItem ci, int ammount)
         {
@@ -190,5 +131,7 @@ namespace ClothingStore.Data
             this._db.ClothingItemReturns.Add(clothingItemReturn);
             this._db.SaveChanges();
         }
+
+        internal void Save() => this._db.SaveChanges();
     }
 }

@@ -10,6 +10,7 @@ using System.Web.Http;
 using System.Web.Http.Description;
 using System.Web.Http.Results;
 using System.Web.Mvc;
+using ClothingStore.BL;
 using ClothingStore.Data;
 
 namespace ClothingStore.Controllers
@@ -19,26 +20,23 @@ namespace ClothingStore.Controllers
         [System.Web.Mvc.HttpPost]
         public JsonResult Purchase([FromBody]int clothingItemId)
         {
-            using (ClothingStoreDBContext db = new ClothingStoreDBContext())
+            var clothingStoreBL = new ClothingStoreBL();
+            var data = "Success";
+
+            try
             {
-                var repo = new ClothingStoreRepository(db);
-                var data = "Success";
-
-                try
-                {
-                    repo.Purchase(clothingItemId);
-                }
-                catch (Exception ex)
-                {
-                    data = ex.Message;
-                }
-
-                return new JsonResult()
-                {
-                    Data = data,
-                    JsonRequestBehavior = JsonRequestBehavior.AllowGet,
-                };
+                clothingStoreBL.Purchase(clothingItemId);
             }
+            catch (Exception ex)
+            {
+                data = ex.Message;
+            }
+
+            return new JsonResult()
+            {
+                Data = data,
+                JsonRequestBehavior = JsonRequestBehavior.AllowGet,
+            };
         }
     }
 }
